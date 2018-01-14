@@ -1,1 +1,259 @@
-# lab10
+[![Build Status](https://travis-ci.org/danya-fr0st/lab10.svg?branch=master)](https://travis-ci.org/danya-fr0st/lab10)
+the demo application redirects data from stdin to a file **log.txt** using a package **print**.
+
+
+## Laboratory work X
+
+Данная лабораторная работа посвещена изучению систем управления пакетами на примере **Hunter**
+
+```ShellSession
+$ open https://github.com/ruslo/hunter
+```
+
+## Tasks
+
+- [x] 1. Создать публичный репозиторий с названием **lab10** на сервисе **GitHub**
+- [x] 2. Сгенирировать токен для доступа к сервису **GitHub** с правами **repo**
+- [x] 3. Выполнить инструкцию учебного материала
+- [x] 4. Ознакомиться со ссылками учебного материала
+- [x] 5. Составить отчет и отправить ссылку личным сообщением в **Slack**
+
+## Tutorial
+
+```ShellSession
+$ export GITHUB_USERNAME=danya-fr0st
+$ export GITHUB_TOKEN=<сгенирированный_токен>
+```
+
+Установка hub
+```ShellSession
+$ cd ${GITHUB_USERNAME}/workspace
+$ pushd .
+$ source scripts/activate
+$ go get github.com/github/hub
+```
+
+Редактирование .config/hub
+```ShellSession
+$ mkdir ~/.config
+$ cat > ~/.config/hub <<EOF
+github.com:
+- user: ${GITHUB_USERNAME}
+  oauth_token: ${GITHUB_TOKEN}
+  protocol: https
+EOF
+$ git config --global hub.protocol https
+```
+
+```ShellSession
+$ wget https://github.com/${GITHUB_USERNAME}/lab09/archive/v0.1.0.0.tar.gz #скачивание пакета
+$ export PRINT_SHA1=`openssl sha1 v0.1.0.0.tar.gz | cut -d'=' -f2 | cut -c2-41`#получение контрольной суммы
+$ echo $PRINT_SHA1 #вывод контрольной суммы
+ 1a0fcd5d4a5fe1a735cdf253c5b7c11541e5609a
+$ rm -rf v0.1.0.0.tar.gz  #удаление архива
+
+```
+Клонирование репозитория
+```ShellSession
+$ git clone https://github.com/ruslo/hunter projects/hunter #клонирование hunter
+$ cd projects/hunter && git checkout v0.19.137 
+$ git remote show #вывод ветвей
+origin
+$ hub fork
+$ git remote show
+origin
+danya-fr0st
+$ git remote show ${GITHUB_USERNAME}
+```
+Редактирование hunter.cmake
+```ShellSession
+$ mkdir cmake/projects/print 
+$ cat > cmake/projects/print/hunter.cmake <<EOF
+#подключение библиотек
+include(hunter_add_version)
+include(hunter_cacheable)
+include(hunter_cmake_args)
+include(hunter_download)
+include(hunter_pick_scheme)
+
+#информация о пакете
+hunter_add_version(
+    PACKAGE_NAME
+    print
+    VERSION
+    "0.1.0.0"
+    URL
+    "https://github.com/${GITHUB_USERNAME}/lab09/archive/v0.1.0.0.tar.gz"
+    SHA1
+    ${PRINT_SHA1}
+)
+
+hunter_pick_scheme(DEFAULT url_sha1_cmake) #построение схемы
+
+hunter_cmake_args(
+    print
+    CMAKE_ARGS
+    BUILD_EXAMPLES=NO
+    BUILD_TESTS=NO
+)
+hunter_cacheable(print)
+hunter_download(PACKAGE_NAME print)
+EOF
+```
+Установка версии проекта
+```ShellSession
+$ cat >> cmake/configs/default.cmake <<EOF
+hunter_config(print VERSION 0.1.0.0)
+EOF
+
+```
+Совершение коммита с меткой
+```ShellSession
+$ git add .
+$ git commit -m"added print package"
+$ git push ${GIHUB_USERNAME} master
+$ git tag v0.19.137.1
+$ git push ${GIHUB_USERNAME} master --tags
+$ cd ..
+```
+Создание удаленного репозитория
+```ShellSession
+$ export HUNTER_ROOT=`pwd`/hunter
+$ mkdir lab10 && cd lab10
+$ git init
+$ git remote add origin https://github.com/${GITHUB_USERNAME}/lab10
+```
+Редактирование demo.cpp
+```ShellSession
+$ mkdir sources
+$ cat > sources/demo.cpp <<EOF
+#include <print.hpp>
+
+int main(int argc, char** argv) {
+	std::string text;
+	while(std::cin >> text) {
+		std::ofstream out("log.txt", std::ios_base::app);
+		print(text, out);
+		out << std::endl;
+	}
+}
+EOF
+```
+Скачивание пакета
+```ShellSession
+$ wget https://github.com/hunter-packages/gate/archive/v0.8.1.tar.gz #скачивание архива
+$ tar -xzvf v0.8.1.tar.gz gate-0.8.1/cmake/HunterGate.cmake #разархивирование
+$ mkdir cmake #создание новой директории
+$ mv gate-0.8.1/cmake/HunterGate.cmake cmake #перемещение файла cmake в созданную директорию
+$ rm -rf gate*/ #удаление директории gate
+$ rm *.tar.gz #удаление архива
+```
+Редактирование CMakeLists.txt
+```ShellSession
+$ cat > CMakeLists.txt <<EOF
+cmake_minimum_required(VERSION 3.0)
+
+set(CMAKE_CXX_STANDARD 11)
+EOF
+```
+Скачивание пакета
+```
+$ wget https://github.com/${GITHUB_USERNAME}/hunter/archive/v0.19.137.1.tar.gz #скачивание архива
+$ export HUNTER_SHA1=`openssl sha1 v0.19.137.1.tar.gz | cut -d'=' -f2 | cut -c2-41`#создание контрольной суммы
+$ echo $HUNTER_SHA1 #вывод контрольной суммы
+$ rm -rf v0.19.137.1.tar.gz #удаление архива
+```
+
+Редактирование CMakeLists.txt
+```ShellSession
+$ cat >> CMakeLists.txt <<EOF
+
+include(cmake/HunterGate.cmake)
+
+HunterGate(
+    URL "https://github.com/${GITHUB_USERNAME}/hunter/archive/v0.19.137.1.tar.gz"
+    SHA1 "${HUNTER_SHA1}"
+)
+EOF
+```
+
+```ShellSession
+$ cat >> CMakeLists.txt <<EOF
+
+project(demo)
+
+hunter_add_package(print)
+find_package(print)
+
+add_executable(demo \${CMAKE_CURRENT_SOURCE_DIR}/sources/demo.cpp)
+target_link_libraries(demo print)
+
+install(TARGETS demo RUNTIME DESTINATION bin)
+EOF
+```
+Редактирование .gitignore
+```ShellSession
+$ cat > .gitignore <<EOF
+*build*/
+*install*/
+*.swp
+EOF
+```
+Редактирование  README.md, вставка значка travis
+```ShellSession
+$ cat > README.md <<EOF
+[![Build Status](https://travis-ci.org/${GITHUB_USERNAME}/lab10.svg?branch=master)](https://travis-ci.org/${GITHUB_USERNAME}/lab10)
+the demo application redirects data from stdin to a file **log.txt** using a package **print**.
+EOF
+```
+
+```ShellSession
+Создание travis.yml
+$ cat > .travis.yml <<EOF
+language: cpp
+
+script:   
+- cmake -H. -B_build
+- cmake --build _build
+EOF
+```
+Проверка работоспособности .travis.yml
+```ShellSession
+$ travis lint
+Hooray, .travis.yml looks valid :)
+```
+Совершение коммита
+```ShellSession
+$ git add .
+$ git commit -m"first commit"
+$ git push origin master
+```
+Активация проекта в travis
+```ShellSession
+$ travis login --auto
+$ travis enable
+```
+Сборка 
+```ShellSession
+$ cmake -H. -B_build -DCMAKE_INSTALL_PREFIX=_install
+$ cmake --build _build --target install
+$ mkdir artifacts && cd artifacts
+$ echo "text1 text2 text3" | ../_install/bin/demo
+$ cat log.txt
+text1
+text2
+text3
+```
+
+## Report
+Создание отчета
+```ShellSession
+$ popd
+$ export LAB_NUMBER=10
+$ git clone https://github.com/tp-labs/lab${LAB_NUMBER} tasks/lab${LAB_NUMBER}
+$ mkdir reports/lab${LAB_NUMBER}
+$ cp tasks/lab${LAB_NUMBER}/README.md reports/lab${LAB_NUMBER}/REPORT.md
+$ cd reports/lab${LAB_NUMBER}
+$ edit REPORT.md
+$ gistup -m "lab${LAB_NUMBER}"
+```

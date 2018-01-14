@@ -1,0 +1,6 @@
+*build*/
+*install*/
+*artifacts*/
+*_install/bin*/
+*_build*/
+*.swp
